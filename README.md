@@ -140,7 +140,7 @@ All outputs are published into structured subfolders under the configured output
   - `unique_markers.list` - Unique marker IDs
   - `*.lead_markers.vcf.gz` - Filtered VCF containing only lead markers
 
-<hr style="border: 1px dashed #ccc;">
+---
 
 # Reproduce of Rice GraphPangenome GS
 
