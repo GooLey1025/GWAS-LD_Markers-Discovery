@@ -154,7 +154,7 @@ The workflow processes multiple rice cohorts with varying sample sizes and varia
 
 All commands below reproduce the exact analysis pipeline used in the paper. 
 
-#### GWAS LD-based lead marker discovery across cohorts and traits
+## GWAS LD-based lead marker discovery across cohorts and traits
 ```sh
 nextflow run main.nf --vcf input_vcfs/ws_A_Population.biallelic.id.vcf --snp_vcf input_vcfs/ws_A_Population.biallelic.id.vcf --outdir 404rice --phenotypes_dir phenotypes/404rice 
 nextflow run main.nf --vcf input_vcfs/ws_Huang_NC2015_POP.biallelic.id.vcf --snp_vcf input_vcfs/ws_Huang_NC2015_POP.biallelic.id.vcf --outdir 1439rice --phenotypes_dir phenotypes/1439rice
@@ -208,7 +208,7 @@ parallel -j 12 --halt now,fail=1 '
 
 ```
 
-##### SNP && INDEL && SV
+#### SNP && INDEL && SV
 ```sh
 all_cohorts="1171rice 705rice"
 
@@ -248,9 +248,9 @@ parallel -j 12 --halt now,fail=1 '
 ' ::: $all_cohorts
 ```
 
-#### Genome-wide LD-based lead markers discovery
+### Genome-wide LD-based lead markers discovery
 
-##### SNP-only 
+#### SNP-only 
 ```sh
 export markers_dir=markers_d
 snp_cohorts="404rice 1439rice 176rice 378rice 3023rice 532rice"
@@ -276,7 +276,7 @@ bcftools view -i "ID=@${markers_dir}/3023rice.snp.WG_ld.markers.txt" input_vcfs/
 bcftools view -i "ID=@${markers_dir}/532rice.snp.WG_ld.markers.txt" input_vcfs/532rice.0.5_0.05.snp.impute.biallelic.id.vcf -o $markers_dir/532rice.snp.WG.LeadMarkers.vcf
 ```
 
-##### SNP && INDEL && SV
+#### SNP && INDEL && SV
 ```sh
 all_cohorts="1171rice 705rice"
 
