@@ -148,13 +148,19 @@ This section documents the complete workflow used for the Rice GraphPangenome GS
 
 2. **Genome-wide LD-based lead marker discovery**: Performs genome-wide LD pruning to identify independent markers across the entire genome, regardless of trait associations. This approach ensures comprehensive genome coverage and marker representativeness.
 
+3. **Public GWAS data Re-Calling and LD filter**: Re-genotypes previously published GWAS datasets (e.g., GWAS Atlas) using GATK3.7 UnifiedGenotyper in discovery mode (`-gt_mode DISCOVERY`) with predefined marker intervals. The re-called variants are then filtered using LD pruning to identify independent markers. This approach leverages existing GWAS findings and adapts them to the target population's LD structure.
+
+4. **RiceNavi library QTN sites**: Incorporates curated quantitative trait nucleotide (QTN) sites from the RiceNavi database, which contains well-validated SNP and INDEL variants associated with important agronomic traits. These pre-processed sites provide high-confidence markers with established biological significance.
+
 The workflow processes multiple rice cohorts with varying sample sizes and variant compositions:
 - **SNP-only cohorts** (404rice, 1439rice, 176rice, 378rice, 3023rice, 532rice): Analyzed using SNP variants only
 - **Multi-variant cohorts** (1171rice, 705rice): Analyzed using combined SNP, INDEL, and SV variants
 
 All commands below reproduce the exact analysis pipeline used in the paper. 
 
-## GWAS LD-based lead marker discovery across cohorts and traits
+## VCF prepared
+
+### GWAS LD-based lead marker discovery across cohorts and traits
 ```sh
 nextflow run main.nf --vcf input_vcfs/ws_A_Population.biallelic.id.vcf --snp_vcf input_vcfs/ws_A_Population.biallelic.id.vcf --outdir 404rice --phenotypes_dir phenotypes/404rice 
 nextflow run main.nf --vcf input_vcfs/ws_Huang_NC2015_POP.biallelic.id.vcf --snp_vcf input_vcfs/ws_Huang_NC2015_POP.biallelic.id.vcf --outdir 1439rice --phenotypes_dir phenotypes/1439rice
@@ -302,3 +308,86 @@ bcftools view -i "ID=@${markers_dir}/705rice.snp.WG_ld.markers.txt" plink_tmp_d/
 bcftools view -i "ID=@${markers_dir}/705rice.indel.WG_ld.markers.txt" plink_tmp_d/705rice.0.5_0.05.full.indel.impute.biallelic.id.format.vcf.gz -o $markers_dir/705rice.indel.WG.LeadMarkers.vcf
 bcftools view -i "ID=@${markers_dir}/705rice.sv.WG_ld.markers.txt" plink_tmp_d/705rice.0.5_0.05.full.sv.impute.biallelic.id.format.vcf.gz -o $markers_dir/705rice.sv.WG.LeadMarkers.vcf
 ```
+
+### Public data (GWAS Atlas) Re-Calling and LD-filter
+
+For multi-variant cohorts (1171rice and 705rice), we re-genotyped previously published GWAS datasets using GATK3.7 UnifiedGenotyper. The re-called variants were then filtered through LD pruning to identify independent markers. These files are linked to standardized names for downstream analysis:
+
+```sh
+ln -s /data3/home/gulei/projects/GraphPan/UnifiedGenotyper_NF/705rice_vcf_out/705rice.public_data.snp.impute.biallelic.rename.id.ld_filter.vcf 705rice.snp.public_data_GWAS_LD.plink_prune.vcf
+
+ln -s /data3/home/gulei/projects/GraphPan/UnifiedGenotyper_NF/1171rice_vcf_out/1171rice.public_data.snp.impute.biallelic.rename.id.ld_filter.vcf 1171rice.snp.public_data_GWAS_LD.plink_prune.vcf
+```
+
+### RiceNavi data sites VCF
+
+The RiceNavi database provides curated quantitative trait nucleotide (QTN) sites with established associations to agronomic traits. Pre-processed site VCFs are used directly:
+
+- `RiceNavi.snp.sites.vcf`: Curated SNP sites from RiceNavi
+- `RiceNavi.indel.sites.vcf`: Curated INDEL sites from RiceNavi
+
+These files have been pre-processed and are ready for use in the marker panel generation pipeline.
+
+## Sites VCF and Intervals Prepared for Genotyping
+
+Although we have generated various VCF files through different strategies, not all of them are suitable for generating a comprehensive population variant panel. The final marker selection integrates multiple complementary sources to ensure both trait relevance and genome-wide coverage.
+
+### Marker Selection Strategy
+
+For the 1171rice population (and similarly for 705rice), the final marker panel combines markers from four complementary sources:
+
+1. **Multi-cohort, multi-trait GWAS lead variants (LD) markers**: Lead markers identified through GWAS analysis across multiple cohorts and traits, capturing trait-associated variants with strong statistical support.
+
+2. **Population-specific genome-wide LD markers**: Independent markers identified through genome-wide LD pruning within the target population (1171rice), ensuring comprehensive genome coverage and population-specific LD structure representation.
+
+3. **Re-genotyped public GWAS data LD markers**: Variants re-genotyped from previously published public datasets (e.g., GWAS Atlas) using the target population's samples, then filtered through LD pruning. This approach leverages existing GWAS findings while adapting them to the target population's genetic structure.
+
+4. **RiceNavi curated QTN sites**: Well-validated quantitative trait nucleotide sites from the RiceNavi database, providing high-confidence markers with established biological significance for important agronomic traits.
+
+### Marker Panel Generation
+
+The `summary.py` script integrates all marker sources and generates the final marker panel. The following example demonstrates the command structure and input VCF files used for the 1171rice population:
+
+```sh
+P=1171rice # 705rice
+
+python3 summary.py --snp-vcf $P.snp.public_data_GWAS_LD.plink_prune.vcf \
+    RiceNavi.snp.sites.vcf \
+    1171rice.snp.WG.LeadMarkers.vcf \
+    705rice.snp.GWAS_LD.vcf \
+    532rice.snp.GWAS_LD.vcf \
+    404rice.snp.GWAS_LD.vcf \
+    378rice.snp.GWAS_LD.vcf \
+    3023rice.snp.GWAS_LD.vcf \
+    176rice.snp.GWAS_LD.vcf \
+    1439rice.snp.GWAS_LD.vcf \
+    1171rice.snp.GWAS_LD.vcf \
+    --indel-vcf $P.indel.WG.LeadMarkers.vcf \
+    705rice.indel.GWAS_LD.vcf \
+    1171rice.indel.GWAS_LD.vcf \
+    RiceNavi.indel.sites.vcf \
+    --sv-vcf 1171rice.sv.GWAS_LD.info.vcf \
+    705rice.sv.GWAS_LD.info.vcf \
+    $P.sv.WG.LeadMarkers.info.vcf \
+    -o $P -p $P
+```
+
+### Output Files and Downstream Usage
+
+The output files from `summary.py` are used as input for the [GATK-DELLY-Allele_based-Genotyping](https://github.com/GooLey1025/GATK-DELLY-Allele_based-Genotyping) pipeline, which performs allele-based genotyping across new samples.
+
+**Important Notes:**
+
+1. **Input SV VCF Requirements**: For structural variant (SV) VCFs, the `INFO` column must be retained from the original Delly-generated VCF. The INFO column contains critical structural variant annotations required for proper genotyping. If the INFO column is missing, variants will not be considered during genotyping, although the program will continue to run.
+
+2. **INFO Column Restoration**: The INFO column is typically discarded during Beagle imputation. To restore it, use `bcftools annotate` to copy the INFO field from the original Delly VCF. Example:
+
+```sh
+bcftools annotate \
+    -a /path/to/GATK-DELLY-VariantsCalling/1171_sv_run/1171rice/delly_no_germline/0.5_0.05.filtered.merged.genotype.id.samples_sort.multiallelic.vcf.gz \
+    -c INFO \
+    -o 1171rice.sv.GWAS_LD.info.vcf \
+    1171rice.sv.GWAS_LD.vcf.gz
+```
+
+This command annotates the filtered SV VCF (`1171rice.sv.GWAS_LD.vcf.gz`) with INFO fields from the original Delly VCF, ensuring all necessary structural variant metadata is preserved for downstream genotyping.
