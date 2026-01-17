@@ -140,7 +140,7 @@ All outputs are published into structured subfolders under the configured output
   - `unique_markers.list` - Unique marker IDs
   - `*.lead_markers.vcf.gz` - Filtered VCF containing only lead markers
 
-### Reproduce of Rice GraphPangenome GS
+# Reproduce of Rice GraphPangenome GS
 
 This section documents the complete workflow used for the Rice GraphPangenome GS paper submission. The pipeline generates comprehensive marker sets across multiple variant types (SNP, INDEL, and SV) using two complementary strategies:
 
