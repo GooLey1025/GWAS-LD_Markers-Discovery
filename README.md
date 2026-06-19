@@ -166,7 +166,7 @@ All commands below reproduce the exact analysis pipeline used in the paper.
 ```sh
 nextflow run main.nf --vcf input_vcfs/ws_A_Population.biallelic.id.vcf --snp_vcf input_vcfs/ws_A_Population.biallelic.id.vcf --outdir 404rice --phenotypes_dir phenotypes/404rice 
 nextflow run main.nf --vcf input_vcfs/ws_Huang_NC2015_POP.biallelic.id.vcf --snp_vcf input_vcfs/ws_Huang_NC2015_POP.biallelic.id.vcf --outdir 1439rice --phenotypes_dir phenotypes/1439rice
-nextflow run main.nf --vcf input_vcfs/ws_Masuta.biallelic.id.vcf --snp_vcf input_vcfs/ws_Masuta.biallelic.id.vcf --outdir 176rice --phenotypes_dir phenotypes/176rice
+nextflow run main.nf --vcf input_vcfs/ws_Matsuoka.biallelic.id.vcf --snp_vcf input_vcfs/ws_Matsuoka.biallelic.id.vcf --outdir 176rice --phenotypes_dir phenotypes/176rice
 nextflow run main.nf --vcf input_vcfs/ws_Susan_NC2011_378rice.biallelic.id.vcf --snp_vcf input_vcfs/ws_Susan_NC2011_378rice.biallelic.id.vcf --outdir 378rice --phenotypes_dir phenotypes/378rice
 nextflow run main.nf --vcf input_vcfs/ws_3k_Rice_3023rice.biallelic.id.vcf --snp_vcf input_vcfs/ws_3k_Rice_3023rice.biallelic.id.vcf --outdir 3023rice --phenotypes_dir phenotypes/3023rice
 
@@ -286,16 +286,18 @@ bcftools view -i "ID=@${markers_dir}/532rice.snp.WG_ld.markers.txt" input_vcfs/5
 
 #### SNP && INDEL && SV
 ```sh
-all_cohorts="1171rice 705rice"
+# 0.03 for 705rice, 0.02 for 1171rice
+all_cohorts="705rice" # 1171rice
+export R2=0.03 
 
 parallel -j 12 '
 bcftools view --threads 32 -i "ID~\"^SNP-\"" -Oz -o plink_tmp_d/{}.0.5_0.05.full.snp.impute.biallelic.id.format.vcf.gz input_vcfs/{}.0.5_0.05.full.all.impute.biallelic.id.format.vcf.gz
 bcftools view --threads 32 -i "ID~\"^INDEL-\"" -Oz -o plink_tmp_d/{}.0.5_0.05.full.indel.impute.biallelic.id.format.vcf.gz input_vcfs/{}.0.5_0.05.full.all.impute.biallelic.id.format.vcf.gz
 bcftools view --threads 32 -i "ID~\"^SV-\"" -Oz -o plink_tmp_d/{}.0.5_0.05.full.sv.impute.biallelic.id.format.vcf.gz input_vcfs/{}.0.5_0.05.full.all.impute.biallelic.id.format.vcf.gz
 
-plink --vcf plink_tmp_d/{}.0.5_0.05.full.snp.impute.biallelic.id.format.vcf.gz --indep-pairwise 1000 50 0.02 --out plink_tmp_d/{}.snp.WG_ld --double-id
-plink --vcf plink_tmp_d/{}.0.5_0.05.full.indel.impute.biallelic.id.format.vcf.gz --indep-pairwise 1000 50 0.02 --out plink_tmp_d/{}.indel.WG_ld --double-id
-plink --vcf plink_tmp_d/{}.0.5_0.05.full.sv.impute.biallelic.id.format.vcf.gz --indep-pairwise 1000 50 0.02 --out plink_tmp_d/{}.sv.WG_ld --double-id
+plink --vcf plink_tmp_d/{}.0.5_0.05.full.snp.impute.biallelic.id.format.vcf.gz --indep-pairwise 1000 50 $R2 --out plink_tmp_d/{}.snp.WG_ld --double-id
+plink --vcf plink_tmp_d/{}.0.5_0.05.full.indel.impute.biallelic.id.format.vcf.gz --indep-pairwise 1000 50 $R2 --out plink_tmp_d/{}.indel.WG_ld --double-id
+plink --vcf plink_tmp_d/{}.0.5_0.05.full.sv.impute.biallelic.id.format.vcf.gz --indep-pairwise 1000 50 $R2 --out plink_tmp_d/{}.sv.WG_ld --double-id
 
 cat plink_tmp_d/{}.snp.WG_ld.prune.in > $markers_dir/{}.snp.WG_ld.markers.txt
 cat plink_tmp_d/{}.indel.WG_ld.prune.in > $markers_dir/{}.indel.WG_ld.markers.txt
@@ -355,7 +357,7 @@ P=1171rice # 705rice
 
 python3 summary.py --snp-vcf $P.snp.public_data_GWAS_LD.plink_prune.vcf \
     RiceNavi.snp.sites.vcf \
-    1171rice.snp.WG.LeadMarkers.vcf \
+    $P.snp.WG.LeadMarkers.vcf \
     705rice.snp.GWAS_LD.vcf \
     532rice.snp.GWAS_LD.vcf \
     404rice.snp.GWAS_LD.vcf \
@@ -393,3 +395,118 @@ bcftools annotate \
 ```
 
 This command annotates the filtered SV VCF (`1171rice.sv.GWAS_LD.vcf.gz`) with INFO fields from the original Delly VCF, ensuring all necessary structural variant metadata is preserved for downstream genotyping.
+
+
+## Effect of LD pruning thresholds(R2) on Whole-Genmoe variant selection
+
+```sh
+all_cohorts=(1171rice 705rice)
+R2_LIST=(0.00001 0.00005 0.0001 0.0005 0.001 0.005 0.01 0.015 0.02 0.025 0.03 0.035 0.04 0.045 0.05)
+export SV_INFO_SRC_1171="/data3/home/gulei/projects/GraphPan/GATK-DELLY-VariantsCalling/1171_sv_run/1171rice/delly_no_germline/0.5_0.05.filtered.merged.genotype.id.samples_sort.multiallelic.vcf.gz"
+export SV_INFO_SRC_705="/data3/home/gulei/projects/GraphPan/GATK-DELLY-VariantsCalling/705rice_graph/delly_no_germline/0.5_0.05.filtered.merged.genotype.id.samples_sort.multiallelic.rename.vcf.gz"
+export markers_dir=markers_d
+
+
+mkdir -p plink_tmp_d
+
+parallel -j 2 --halt now,fail=1 '
+  set -euo pipefail
+  cohort={}
+  in_vcf="input_vcfs/${cohort}.0.5_0.05.full.all.impute.biallelic.id.format.vcf.gz"
+
+  bcftools view --threads 32 -i "ID~\"^SNP-\""   -Oz -o "plink_tmp_d/${cohort}.snp.vcf.gz"   "$in_vcf"
+  bcftools view --threads 32 -i "ID~\"^INDEL-\"" -Oz -o "plink_tmp_d/${cohort}.indel.vcf.gz" "$in_vcf"
+  bcftools view --threads 32 -i "ID~\"^SV-\""    -Oz -o "plink_tmp_d/${cohort}.sv.vcf.gz"    "$in_vcf"
+
+  tabix -f -p vcf "plink_tmp_d/${cohort}.snp.vcf.gz"
+  tabix -f -p vcf "plink_tmp_d/${cohort}.indel.vcf.gz"
+  tabix -f -p vcf "plink_tmp_d/${cohort}.sv.vcf.gz"
+' ::: "${all_cohorts[@]}"
+
+
+parallel -j 12 --halt now,fail=1 '
+set -euo pipefail
+
+cohort={1}
+r2={2}
+
+for type in snp indel sv; do
+
+  vcf="plink_tmp_d/${cohort}.${type}.vcf.gz"
+  out_prefix="plink_tmp_d/${cohort}.${r2}.${type}.WG_ld"
+
+  plink --vcf "$vcf" \
+        --indep-pairwise 1000 50 "$r2" \
+        --out "$out_prefix" \
+        --double-id
+
+  cp "${out_prefix}.prune.in" \
+     "${markers_dir}/${cohort}.${r2}.${type}.WG_ld.markers.txt"
+
+  bcftools view \
+    -i "ID=@${markers_dir}/${cohort}.${r2}.${type}.WG_ld.markers.txt" \
+    -o "${markers_dir}/${cohort}.${r2}.${type}.WG.LeadMarkers.vcf" \
+    "$vcf"
+
+  if [[ "$type" == "sv" ]]; then
+
+    bgzip -f "${markers_dir}/${cohort}.${r2}.sv.WG.LeadMarkers.vcf"
+    tabix -f -p vcf "${markers_dir}/${cohort}.${r2}.sv.WG.LeadMarkers.vcf.gz"
+
+    if [[ "$cohort" == "1171rice" ]]; then
+      bcftools annotate \
+        -a "$SV_INFO_SRC_1171" \
+        -c INFO \
+        -Oz \
+        -o "${markers_dir}/${cohort}.${r2}.sv.WG.LeadMarkers.info.vcf" \
+        "${markers_dir}/${cohort}.${r2}.sv.WG.LeadMarkers.vcf.gz"
+    else
+      bcftools annotate \
+        -a "$SV_INFO_SRC_705" \
+        -c INFO \
+        -o "${markers_dir}/${cohort}.${r2}.sv.WG.LeadMarkers.info.vcf" \
+        "${markers_dir}/${cohort}.${r2}.sv.WG.LeadMarkers.vcf.gz"
+    fi
+  fi
+done
+' ::: "${all_cohorts[@]}" ::: "${R2_LIST[@]}"
+
+
+cd markers_d
+
+parallel -j 6 --halt now,fail=1 '
+  set -euo pipefail
+  P={1}
+  R2={2}
+
+  SNP_WG="${P}.${R2}.snp.WG.LeadMarkers.vcf"
+  INDEL_WG="${P}.${R2}.indel.WG.LeadMarkers.vcf"
+  SV_WG="${P}.${R2}.sv.WG.LeadMarkers.info.vcf"
+
+  out_prefix="${P}.R2_${R2}"
+
+  python3 summary.py \
+    --snp-vcf \
+      "${P}.snp.public_data_GWAS_LD.plink_prune.vcf" \
+      RiceNavi.snp.sites.vcf \
+      "${SNP_WG}" \
+      705rice.snp.GWAS_LD.vcf \
+      532rice.snp.GWAS_LD.vcf \
+      404rice.snp.GWAS_LD.vcf \
+      378rice.snp.GWAS_LD.vcf \
+      3023rice.snp.GWAS_LD.vcf \
+      176rice.snp.GWAS_LD.vcf \
+      1439rice.snp.GWAS_LD.vcf \
+      1171rice.snp.GWAS_LD.vcf \
+    --indel-vcf \
+      "${INDEL_WG}" \
+      705rice.indel.GWAS_LD.vcf \
+      1171rice.indel.GWAS_LD.vcf \
+      RiceNavi.indel.sites.vcf \
+    --sv-vcf \
+      1171rice.sv.GWAS_LD.info.vcf \
+      705rice.sv.GWAS_LD.info.vcf \
+      "${SV_WG}" \
+    -o "${out_prefix}" -p "${out_prefix}"
+' ::: "${all_cohorts[@]}" ::: "${R2_LIST[@]}"
+```

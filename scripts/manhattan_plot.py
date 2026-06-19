@@ -226,6 +226,7 @@ def create_manhattan_plot(df, output_file, label, significance_threshold):
     
     # Save figure
     plt.savefig(output_file, dpi=300, bbox_inches='tight', format='png')
+    plt.savefig(output_file.replace('.png', '.pdf'), dpi=300, bbox_inches='tight', format='pdf')
     
     plt.close()
 
